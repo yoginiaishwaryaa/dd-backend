@@ -1,0 +1,16 @@
+meta {
+  name: Get Repos
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseurl}}/repos/
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

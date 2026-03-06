@@ -1,0 +1,26 @@
+meta {
+  name: Toggle Activation
+  type: http
+  seq: 3
+}
+
+patch {
+  url: {{baseurl}}/repos/:repo_id/activate
+  body: json
+  auth: inherit
+}
+
+params:path {
+  repo_id: 
+}
+
+body:json {
+  {
+    "is_active": true
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

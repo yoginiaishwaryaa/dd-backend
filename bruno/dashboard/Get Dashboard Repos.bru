@@ -1,0 +1,16 @@
+meta {
+  name: Get Dashboard Repos
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseurl}}/dashboard/repos
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

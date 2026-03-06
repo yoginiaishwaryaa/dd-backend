@@ -1,0 +1,20 @@
+meta {
+  name: Delete Notification
+  type: http
+  seq: 4
+}
+
+delete {
+  url: {{baseurl}}/notifications/:notification_id
+  body: none
+  auth: inherit
+}
+
+params:path {
+  notification_id: 
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

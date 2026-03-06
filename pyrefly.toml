@@ -1,0 +1,9 @@
+project-includes = [
+    "**/*.py*",
+    "**/*.ipynb",
+]
+
+project_excludes = [
+    ".venv/**/*",
+    "repos/**/*",
+]

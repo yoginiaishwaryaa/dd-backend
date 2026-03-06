@@ -1,0 +1,25 @@
+# Core
+fastapi
+uvicorn
+pydantic
+pydantic-settings
+sqlalchemy
+alembic
+psycopg2-binary
+email-validator
+bcrypt
+pyseto
+httpx
+pyjwt
+redis
+rq
+langgraph
+langchain-google-genai
+
+# Dev
+ruff
+pyrefly
+
+# Testing
+pytest
+pytest-asyncio

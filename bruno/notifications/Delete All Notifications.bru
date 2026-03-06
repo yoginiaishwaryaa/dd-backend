@@ -1,0 +1,16 @@
+meta {
+  name: Delete All Notifications
+  type: http
+  seq: 5
+}
+
+delete {
+  url: {{baseurl}}/notifications/
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

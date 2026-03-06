@@ -1,0 +1,2 @@
+exclude = [".venv", "alembic", "repos"]
+line-length = 100
