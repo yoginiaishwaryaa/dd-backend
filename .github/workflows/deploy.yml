@@ -16,7 +16,14 @@ jobs:
         username: ${{ secrets.VPS_USERNAME }}
         key: ${{ secrets.VPS_SSH_KEY }}
         script: |
+          # Clean old code and clone the fresh code
           rm -rf dd-backend
-          git clone https://github.com/yoginiaishwaryaa/dd-backend dd-backend
+          git clone https://github.com/yoginiaishwaryaa/dd-backend
           cd dd-backend
+          
+          # Securely create the .env file on the server using your GitHub Secrets
+          echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" > .env
+          echo "REDIS_URL=redis://redis:6379/0" >> .env
+          
+          # Build and run the updated containers
           docker compose up --build -d

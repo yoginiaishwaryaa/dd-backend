@@ -19,8 +19,10 @@ services:
     depends_on:
       - postgres
       - redis
+    env_file:
+      - .env # Loads the environment variables created by GitHub Actions
     volumes:
-      - repo_data:/path/to/delta.backend/repos # Shared storage for git clones
+      - repo_data:/path/to/delta.backend/repos
 
   worker:
     build: .
@@ -28,9 +30,11 @@ services:
     depends_on:
       - postgres
       - redis
+    env_file:
+      - .env # Loads the environment variables created by GitHub Actions
     volumes:
-      - repo_data:/path/to/delta.backend/repos # Shared storage for git clones
+      - repo_data:/path/to/delta.backend/repos
 
 volumes:
   postgres_data:
-  repo_data: # Crucial for your app!
+  repo_data:
