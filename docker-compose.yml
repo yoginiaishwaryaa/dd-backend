@@ -15,14 +15,14 @@ services:
     build: .
     command: uvicorn app.main:app --host 0.0.0.0 --port 80
     ports:
-      - "80:80" # Maps port 80 on the VPS to your API
+      - "80:80"
     depends_on:
       - postgres
       - redis
     env_file:
-      - .env # Loads the environment variables created by GitHub Actions
+      - .env
     volumes:
-      - repo_data:/path/to/delta.backend/repos
+      - repo_data:/app/repos
 
   worker:
     build: .
@@ -31,9 +31,9 @@ services:
       - postgres
       - redis
     env_file:
-      - .env # Loads the environment variables created by GitHub Actions
+      - .env
     volumes:
-      - repo_data:/path/to/delta.backend/repos
+      - repo_data:/app/repos
 
 volumes:
   postgres_data:
