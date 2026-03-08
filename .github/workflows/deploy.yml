@@ -15,23 +15,11 @@ jobs:
         username: ${{ secrets.VPS_USERNAME }}
         key: ${{ secrets.VPS_SSH_KEY }}
         script: |
-          # 1. Install Docker and Docker Compose (if not already installed)
-          if ! command -v docker &> /dev/null; then
-              curl -fsSL https://get.docker.com -o get-docker.sh
-              sudo sh get-docker.sh
-              sudo usermod -aG docker ubuntu
-              sudo systemctl enable --now docker
-          fi
-          
-          # 2. Clean old code and clone the fresh code (Public Repo)
-          rm -rf dd-backend
-          git clone https://github.com/yoginiaishwaryaa/dd-backend.git
+          # 1. Enter the project folder
           cd dd-backend
           
-          # 3. Securely create the .env file on the server using your GitHub Secrets
-          echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" > .env
-          echo "REDIS_URL=redis://redis:6379/0" >> .env
-          echo "REPOS_BASE_PATH=/app/repos" >> .env
+          # 2. Pull the latest code (this updates the Python code without touching your .env)
+          git pull origin main
           
-          # 4. Build and run the updated containers
+          # 3. Build and run the updated containers
           sudo docker compose up --build -d
