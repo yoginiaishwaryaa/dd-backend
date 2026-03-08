@@ -15,8 +15,10 @@ router = APIRouter()
 
 
 # Endpoint to create a new user account with email & password
-@router.post("/signup", response_model=schemas.Message)
-def create_user(user_in: schemas.UserCreate, db: Session = Depends(get_db_connection)):
+@router.post("/signup", response_model=schemas.UserLoginResponse)
+def create_user(
+    response: Response, user_in: schemas.UserCreate, db: Session = Depends(get_db_connection)
+):
     # Check if user already exists
     user = db.query(User).filter(User.email == user_in.email).first()
     if user:
@@ -34,7 +36,38 @@ def create_user(user_in: schemas.UserCreate, db: Session = Depends(get_db_connec
 
     db.add(user)
     db.commit()
-    return {"message": "User created successfully"}
+    db.refresh(user)
+
+    # Generate access token
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = security.create_access_token(user.id, expires_delta=access_token_expires)
+
+    # Generate refresh token
+    refresh_token_expires = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    refresh_token = security.create_refresh_token(user.id, expires_delta=refresh_token_expires)
+
+    # Store the refresh token hash in DB for validation (during refresh logic)
+    user.current_refresh_token_hash = security.get_hash(refresh_token)
+    db.commit()
+
+    # Send both tokens as httponly (To prevent XSS Scripting) cookies
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        max_age=int(access_token_expires.total_seconds()),
+        expires=int(access_token_expires.total_seconds()),
+    )
+
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        max_age=int(refresh_token_expires.total_seconds()),
+        expires=int(refresh_token_expires.total_seconds()),
+    )
+
+    return {"email": user.email, "name": user.full_name}
 
 
 # Endpoint to Login with email & password

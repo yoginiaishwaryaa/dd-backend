@@ -240,6 +240,7 @@ def _setup_run_mocks(drift_event_id=None, docs_root_path="/docs"):
     drift_event.check_run_id = 12345
     drift_event.processing_phase = "queued"
     drift_event.drift_result = "pending"
+    drift_event.retry_count = 3  # Setting to 3 directly to prevent retries in error-path tests
 
     session = MagicMock()
     session.query.return_value.filter.return_value.first.return_value = drift_event
@@ -411,7 +412,7 @@ def test_extract_and_save_code_changes_no_ignore_patterns():
     assert all(c.is_ignored is False for c in added_changes)
 
 
-# Helper functio to set up mocks specifically for failure-path tests in run_drift_analysis
+# Helper function to set up mocks specifically for failure-path tests in run_drift_analysis
 def _setup_failure_mocks(check_run_id=12345):
     drift_event_id = str(uuid4())
 
@@ -419,6 +420,7 @@ def _setup_failure_mocks(check_run_id=12345):
     drift_event.id = drift_event_id
     drift_event.pr_number = 42
     drift_event.check_run_id = check_run_id
+    drift_event.retry_count = 3  # Setting as 3 to triggers the final failure path
     drift_event.repository.repo_name = "owner/repo"
     drift_event.repository.installation_id = 99
     drift_event.repository.docs_root_path = "/docs"
@@ -511,7 +513,7 @@ def test_run_drift_analysis_failure_updates_check_run():
         with pytest.raises(RuntimeError):
             run_drift_analysis(drift_event_id)
 
-    mock_update_check_run.assert_called_once_with(
+    mock_update_check_run.assert_any_call(
         repo_full_name="owner/repo",
         check_run_id=99999,
         installation_id=99,
@@ -520,7 +522,7 @@ def test_run_drift_analysis_failure_updates_check_run():
         title="Delta Drift Analysis",
         summary="Drift analysis failed due to an internal error.",
     )
-    mock_asyncio_run.assert_called_once()
+    assert mock_asyncio_run.call_count >= 1
 
 
 # Test that check run is NOT updated when check_run_id is None
@@ -619,6 +621,94 @@ def test_run_drift_analysis_failure_no_notification_when_no_user_id():
     mock_notif.assert_not_called()
 
 
+# ── in_progress check run update tests ──────────────────────────────────────
+
+
+# Test that update_github_check_run is called with in_progress at the start of analysis
+def test_run_drift_analysis_updates_check_run_to_in_progress():
+    session, drift_event = _setup_run_mocks()
+    drift_event.check_run_id = 77777
+
+    with (
+        patch("app.services.drift_analysis._create_session", return_value=session),
+        patch("app.services.drift_analysis.get_local_repo_path") as mock_path,
+        patch("app.services.drift_analysis._extract_and_save_code_changes"),
+        patch("app.services.drift_analysis.drift_analysis_graph") as mock_graph,
+        patch("app.services.drift_analysis.asyncio.run") as mock_asyncio_run,
+        patch(
+            "app.services.drift_analysis.update_github_check_run", new_callable=MagicMock
+        ) as mock_update,
+    ):
+        mock_path.return_value = Path("/repos/owner/repo")
+        mock_graph.invoke.return_value = {}
+
+        run_drift_analysis(str(drift_event.id))
+
+    mock_update.assert_called_once_with(
+        repo_full_name="owner/repo",
+        check_run_id=77777,
+        installation_id=99,
+        status="in_progress",
+        title="Delta Drift Analysis",
+        summary="Analysing PR for documentation drift...",
+    )
+    mock_asyncio_run.assert_called_once()
+
+
+# Test that in_progress update is skipped when check_run_id is None
+def test_run_drift_analysis_skips_in_progress_when_no_check_run_id():
+    session, drift_event = _setup_run_mocks()
+    drift_event.check_run_id = None
+
+    with (
+        patch("app.services.drift_analysis._create_session", return_value=session),
+        patch("app.services.drift_analysis.get_local_repo_path") as mock_path,
+        patch("app.services.drift_analysis._extract_and_save_code_changes"),
+        patch("app.services.drift_analysis.drift_analysis_graph") as mock_graph,
+        patch("app.services.drift_analysis.asyncio.run") as mock_asyncio_run,
+        patch(
+            "app.services.drift_analysis.update_github_check_run", new_callable=MagicMock
+        ) as mock_update,
+    ):
+        mock_path.return_value = Path("/repos/owner/repo")
+        mock_graph.invoke.return_value = {}
+
+        run_drift_analysis(str(drift_event.id))
+
+    mock_update.assert_not_called()
+    mock_asyncio_run.assert_not_called()
+
+
+# Test that a failing in_progress update does not abort the analysis
+def test_run_drift_analysis_in_progress_failure_doesnt_abort():
+    session, drift_event = _setup_run_mocks()
+    drift_event.check_run_id = 99999
+
+    with (
+        patch("app.services.drift_analysis._create_session", return_value=session),
+        patch("app.services.drift_analysis.get_local_repo_path") as mock_path,
+        patch("app.services.drift_analysis._extract_and_save_code_changes") as mock_extract,
+        patch("app.services.drift_analysis.drift_analysis_graph") as mock_graph,
+        patch(
+            "app.services.drift_analysis.asyncio.run",
+            side_effect=Exception("GitHub API unavailable"),
+        ),
+        patch("app.services.drift_analysis.update_github_check_run", new_callable=MagicMock),
+    ):
+        mock_path.return_value = Path("/repos/owner/repo")
+        mock_graph.invoke.return_value = {}
+
+        # Should not raise — the in_progress failure is swallowed
+        run_drift_analysis(str(drift_event.id))
+
+    # Analysis still proceeds after the in_progress update failure
+    mock_extract.assert_called_once()
+    mock_graph.invoke.assert_called_once()
+
+
+# ── wildcard pattern matching (existing test, unchanged) ─────────────────────
+
+
 # Test wildcard pattern matching (e.g. *.cfg and directory prefix patterns)
 def test_extract_and_save_code_changes_wildcard_pattern():
     drift_event = _make_drift_event(file_ignore_patterns=["*.cfg", "config/*"])
@@ -644,3 +734,151 @@ def test_extract_and_save_code_changes_wildcard_pattern():
     assert is_ignored_flags["setup.cfg"] is True
     assert is_ignored_flags["config/settings.py"] is True
     assert is_ignored_flags["src/service.py"] is False
+
+
+# Helper function to create mocks for retry-path tests with a configurable retry_count
+def _setup_retry_mocks(retry_count=0):
+    drift_event_id = str(uuid4())
+
+    drift_event = MagicMock()
+    drift_event.id = drift_event_id
+    drift_event.pr_number = 42
+    drift_event.check_run_id = 12345
+    drift_event.retry_count = retry_count
+    drift_event.repository.repo_name = "owner/repo"
+    drift_event.repository.installation_id = 99
+    drift_event.repository.docs_root_path = "/docs"
+    drift_event.repository.installation.user_id = uuid4()
+
+    session = MagicMock()
+    session.query.return_value.filter.return_value.first.return_value = drift_event
+
+    return session, drift_event, drift_event_id
+
+
+# Test that failure with retry_count < 3 re-enqueues and does NOT raise
+def test_run_drift_analysis_retries_on_failure():
+    session, drift_event, drift_event_id = _setup_retry_mocks(retry_count=0)
+
+    with (
+        patch("app.services.drift_analysis._create_session", return_value=session),
+        patch(
+            "app.services.drift_analysis._extract_and_save_code_changes",
+            side_effect=RuntimeError("transient error"),
+        ),
+        patch("app.services.drift_analysis.asyncio.run"),
+        patch("app.services.drift_analysis.update_github_check_run", new_callable=MagicMock),
+        patch("app.services.drift_analysis.task_queue") as mock_queue,
+    ):
+        # Should NOT raise. Job should be re-enqueued instead
+        run_drift_analysis(drift_event_id)
+
+    mock_queue.enqueue.assert_called_once_with(run_drift_analysis, drift_event_id)
+
+
+# Test that each retry increments retry_count by 1
+def test_run_drift_analysis_retry_increments_count():
+    session, drift_event, drift_event_id = _setup_retry_mocks(retry_count=1)
+
+    with (
+        patch("app.services.drift_analysis._create_session", return_value=session),
+        patch(
+            "app.services.drift_analysis._extract_and_save_code_changes",
+            side_effect=RuntimeError("transient error"),
+        ),
+        patch("app.services.drift_analysis.asyncio.run"),
+        patch("app.services.drift_analysis.update_github_check_run", new_callable=MagicMock),
+        patch("app.services.drift_analysis.task_queue"),
+    ):
+        run_drift_analysis(drift_event_id)
+
+    assert drift_event.retry_count == 2
+
+
+# Test that retry resets drift event state
+def test_run_drift_analysis_retry_resets_state():
+    session, drift_event, drift_event_id = _setup_retry_mocks(retry_count=0)
+
+    with (
+        patch("app.services.drift_analysis._create_session", return_value=session),
+        patch(
+            "app.services.drift_analysis._extract_and_save_code_changes",
+            side_effect=RuntimeError("transient error"),
+        ),
+        patch("app.services.drift_analysis.asyncio.run"),
+        patch("app.services.drift_analysis.update_github_check_run", new_callable=MagicMock),
+        patch("app.services.drift_analysis.task_queue"),
+    ):
+        run_drift_analysis(drift_event_id)
+
+    assert drift_event.processing_phase == "queued"
+    assert drift_event.drift_result == "pending"
+    assert drift_event.started_at is None
+    assert drift_event.completed_at is None
+    assert drift_event.overall_drift_score is None
+    assert drift_event.summary is None
+    assert drift_event.agent_logs is None
+
+
+# Test that retry deletes stale DriftFinding and CodeChange records
+def test_run_drift_analysis_retry_clears_stale_data():
+    session, drift_event, drift_event_id = _setup_retry_mocks(retry_count=0)
+
+    with (
+        patch("app.services.drift_analysis._create_session", return_value=session),
+        patch(
+            "app.services.drift_analysis._extract_and_save_code_changes",
+            side_effect=RuntimeError("transient error"),
+        ),
+        patch("app.services.drift_analysis.asyncio.run"),
+        patch("app.services.drift_analysis.update_github_check_run", new_callable=MagicMock),
+        patch("app.services.drift_analysis.task_queue"),
+    ):
+        run_drift_analysis(drift_event_id)
+
+    # One delete call for DriftFinding, one for CodeChange
+    assert session.query.return_value.filter.return_value.delete.call_count == 2
+
+
+# Test that at retry_count=3 the job is not re-enqueued and is marked as permanently failed
+def test_run_drift_analysis_no_retry_when_max_attempts_reached():
+    session, drift_event, drift_event_id = _setup_retry_mocks(retry_count=3)
+
+    with (
+        patch("app.services.drift_analysis._create_session", return_value=session),
+        patch(
+            "app.services.drift_analysis._extract_and_save_code_changes",
+            side_effect=RuntimeError("final failure"),
+        ),
+        patch("app.services.drift_analysis.asyncio.run"),
+        patch("app.services.drift_analysis.update_github_check_run", new_callable=MagicMock),
+        patch("app.services.drift_analysis.create_notification"),
+        patch("app.services.drift_analysis.task_queue") as mock_queue,
+    ):
+        with pytest.raises(RuntimeError, match="final failure"):
+            run_drift_analysis(drift_event_id)
+
+    mock_queue.enqueue.assert_not_called()
+    assert drift_event.processing_phase == "failed"
+    assert drift_event.drift_result == "error"
+
+
+# Test that all three retry attempts re-enqueue before the final failure
+def test_run_drift_analysis_retries_all_three_times():
+    for retry_count in range(3):
+        session, drift_event, drift_event_id = _setup_retry_mocks(retry_count=retry_count)
+
+        with (
+            patch("app.services.drift_analysis._create_session", return_value=session),
+            patch(
+                "app.services.drift_analysis._extract_and_save_code_changes",
+                side_effect=RuntimeError("error"),
+            ),
+            patch("app.services.drift_analysis.asyncio.run"),
+            patch("app.services.drift_analysis.update_github_check_run", new_callable=MagicMock),
+            patch("app.services.drift_analysis.task_queue") as mock_queue,
+        ):
+            run_drift_analysis(drift_event_id)  # Should not raise
+
+        mock_queue.enqueue.assert_called_once_with(run_drift_analysis, drift_event_id)
+        assert drift_event.retry_count == retry_count + 1

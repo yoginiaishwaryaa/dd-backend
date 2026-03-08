@@ -46,7 +46,6 @@ CREATE TABLE repositories (
     avatar_url VARCHAR,
     docs_root_path VARCHAR DEFAULT '/docs',
     target_branch VARCHAR DEFAULT 'main',
-    drift_sensitivity FLOAT DEFAULT 0.5,
     style_preference VARCHAR DEFAULT 'professional',
     file_ignore_patterns VARCHAR[],
     last_synced_at TIMESTAMPTZ,
@@ -61,6 +60,8 @@ CREATE TABLE drift_events (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     repo_id UUID REFERENCES repositories(id) ON DELETE CASCADE,
     pr_number INTEGER NOT NULL,
+    base_branch VARCHAR NOT NULL,
+    head_branch VARCHAR NOT NULL,
     base_sha VARCHAR NOT NULL,
     head_sha VARCHAR NOT NULL,
     check_run_id BIGINT,
@@ -70,6 +71,7 @@ CREATE TABLE drift_events (
     summary VARCHAR,
     agent_logs JSONB,
     error_message VARCHAR,
+    retry_count INTEGER DEFAULT 0 NOT NULL,
     started_at TIMESTAMPTZ,
     completed_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT now(),
@@ -107,6 +109,7 @@ CREATE TABLE code_changes (
     file_path VARCHAR NOT NULL,
     change_type VARCHAR,
     is_code BOOLEAN DEFAULT TRUE,
+    is_ignored BOOLEAN DEFAULT FALSE NOT NULL,
     CONSTRAINT check_code_change_type CHECK (change_type IN ('added', 'modified', 'deleted'))
 );
 ```

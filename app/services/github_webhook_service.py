@@ -4,7 +4,7 @@ from sqlalchemy.dialects.postgresql import insert
 from app.models.user import User
 from app.models.installation import Installation
 from app.models.repository import Repository
-from app.models.drift import DriftEvent
+from app.models.drift import DriftEvent, DriftFinding, CodeChange
 
 from app.services.github_api import (
     create_github_check_run,
@@ -186,17 +186,13 @@ def _handle_repos_removed(db: Session, payload: dict):
                 )
 
 
-# Handle PR webhook event (Opened)
-async def _handle_pr_event(db: Session, payload: dict):
-    action = payload.get("action")
-    if action != "opened":
-        return
-
+# Handle pr_opened webhook event
+async def _handle_pr_opened(db: Session, payload: dict):
     installation_id = payload.get("installation", {}).get("id")
     repo_full_name = payload.get("repository", {}).get("full_name")
 
     if not installation_id or not repo_full_name:
-        print(f"Warning: Missing installation_id or repo_full_name in payload. Action: {action}")
+        print("Warning: Missing installation_id or repo_full_name in PR opened payload.")
         return
 
     repo = (
@@ -278,6 +274,191 @@ async def _handle_pr_event(db: Session, payload: dict):
         )
 
 
+# Handle pr_synchronize webhook event (new commits pushed to open PR)
+async def _handle_pr_synchronize(db: Session, payload: dict):
+    installation_id = payload.get("installation", {}).get("id")
+    repo_full_name = payload.get("repository", {}).get("full_name")
+    pr_number = payload.get("number")
+
+    if not installation_id or not repo_full_name or not pr_number:
+        print("Warning: Missing fields in PR synchronize payload.")
+        return
+
+    repo = (
+        db.query(Repository)
+        .filter(
+            Repository.installation_id == installation_id, Repository.repo_name == repo_full_name
+        )
+        .first()
+    )
+
+    if not repo:
+        print(f"Warning: Repository not found: {repo_full_name} (inst: {installation_id})")
+        return
+
+    if not repo.is_active:
+        print(f"Skipping PR #{pr_number} sync for deactivated repository: {repo_full_name}")
+        head_sha = payload["pull_request"]["head"]["sha"]
+        await create_skipped_check_run(
+            repo_full_name,
+            head_sha,
+            installation_id,
+            "Drift analysis is disabled for this repository. Enable it in Delta to resume tracking.",
+        )
+        return
+
+    base_branch = payload["pull_request"]["base"]["ref"]
+    head_branch = payload["pull_request"]["head"]["ref"]
+    new_base_sha = payload["pull_request"]["base"]["sha"]
+    new_head_sha = payload["pull_request"]["head"]["sha"]
+
+    # Pull the latest commits
+    if base_branch == repo.target_branch:
+        try:
+            access_token = await get_installation_access_token(installation_id)
+            branches_to_pull = [base_branch]
+
+            if not payload["pull_request"]["head"].get("repo", {}).get("fork"):
+                branches_to_pull.append(head_branch)
+
+            await pull_branches(repo_full_name, access_token, branches_to_pull)
+        except Exception as e:
+            print(f"Error pulling branches for {repo_full_name}: {str(e)}")
+
+    # Find the existing drift event for this PR and reset it for re-analysis
+    drift_event = (
+        db.query(DriftEvent)
+        .filter(DriftEvent.repo_id == repo.id, DriftEvent.pr_number == pr_number)
+        .order_by(DriftEvent.created_at.desc())
+        .first()
+    )
+
+    if drift_event:
+        # Clear stale findings and code changes from the previous run
+        db.query(DriftFinding).filter(DriftFinding.drift_event_id == drift_event.id).delete(
+            synchronize_session=False
+        )
+        db.query(CodeChange).filter(CodeChange.drift_event_id == drift_event.id).delete(
+            synchronize_session=False
+        )
+
+        # Update the SHAs and reset to a clean queued state
+        drift_event.base_sha = new_base_sha
+        drift_event.head_sha = new_head_sha
+        drift_event.processing_phase = "queued"
+        drift_event.drift_result = "pending"
+        drift_event.overall_drift_score = None
+        drift_event.summary = None
+        drift_event.agent_logs = {}
+        drift_event.error_message = None
+        drift_event.started_at = None
+        drift_event.completed_at = None
+        drift_event.check_run_id = None
+        db.flush()
+
+        drift_event_id = str(drift_event.id)
+    else:
+        # If no existing event found, then creates a fresh one
+        new_event = DriftEvent(
+            repo_id=repo.id,
+            pr_number=pr_number,
+            base_branch=base_branch,
+            head_branch=head_branch,
+            base_sha=new_base_sha,
+            head_sha=new_head_sha,
+            processing_phase="queued",
+            drift_result="pending",
+            agent_logs={},
+        )
+        db.add(new_event)
+        db.flush()
+        db.refresh(new_event)
+        drift_event_id = str(new_event.id)
+
+    # Create a fresh GH check run
+    await create_github_check_run(db, drift_event_id, repo_full_name, new_head_sha, installation_id)
+
+    # Enqueue drift analysis job
+    task_queue.enqueue(run_drift_analysis, drift_event_id)
+
+    # Notify the user that new commits have been detected and drift analysis is re-queued
+    installation = (
+        db.query(Installation).filter(Installation.installation_id == installation_id).first()
+    )
+    if installation and installation.user_id:
+        create_notification(
+            db,
+            installation.user_id,
+            f"PR #{pr_number} in {repo_full_name} has new commits and has been re-queued for drift analysis.",
+        )
+
+
+# Handle when a user clicks "Re-run all checks" in the linked repo
+async def _handle_check_suite_rerequested(db: Session, payload: dict):
+    check_suite = payload.get("check_suite", {})
+    head_sha = check_suite.get("head_sha")
+    repo_full_name = payload.get("repository", {}).get("full_name")
+    installation_id = payload.get("installation", {}).get("id")
+
+    if not head_sha or not repo_full_name or not installation_id:
+        print("Warning: Missing fields in check_suite rerequested payload.")
+        return
+
+    # Find latest existing drift event by its head_sha
+    drift_event = (
+        db.query(DriftEvent)
+        .join(DriftEvent.repository)
+        .filter(DriftEvent.head_sha == head_sha)
+        .order_by(DriftEvent.created_at.desc())
+        .first()
+    )
+
+    if not drift_event:
+        print(f"Warning: No DriftEvent found for head_sha {head_sha}.")
+        return
+
+    drift_event_id = str(drift_event.id)
+
+    # Clear all stale findings and code changes from previous run
+    db.query(DriftFinding).filter(DriftFinding.drift_event_id == drift_event.id).delete(
+        synchronize_session=False
+    )
+    db.query(CodeChange).filter(CodeChange.drift_event_id == drift_event.id).delete(
+        synchronize_session=False
+    )
+
+    # Reset the drift event back to a clean queued state
+    drift_event.processing_phase = "queued"
+    drift_event.drift_result = "pending"
+    drift_event.overall_drift_score = None
+    drift_event.summary = None
+    drift_event.agent_logs = {}
+    drift_event.error_message = None
+    drift_event.started_at = None
+    drift_event.completed_at = None
+    drift_event.check_run_id = None
+    db.flush()
+
+    # Create a fresh GitHub check run
+    await create_github_check_run(
+        db, drift_event_id, repo_full_name, drift_event.head_sha, installation_id
+    )
+
+    # Re-enqueue the drift analysis job
+    task_queue.enqueue(run_drift_analysis, drift_event_id)
+
+    # Notify the user that drift analysis has been re-queued on their request
+    installation = (
+        db.query(Installation).filter(Installation.installation_id == installation_id).first()
+    )
+    if installation and installation.user_id:
+        create_notification(
+            db,
+            installation.user_id,
+            f"PR #{drift_event.pr_number} in {repo_full_name} has been re-queued on request for drift analysis.",
+        )
+
+
 # Main Router to handle different types of GH webhook events
 async def handle_github_event(db: Session, event_type: str, payload: dict):
     # Installation lifecycle events
@@ -302,6 +483,16 @@ async def handle_github_event(db: Session, event_type: str, payload: dict):
 
     # PR Events
     elif event_type == "pull_request":
-        await _handle_pr_event(db, payload)
+        action = payload.get("action")
+        if action == "opened":
+            await _handle_pr_opened(db, payload)
+        elif action == "synchronize":
+            await _handle_pr_synchronize(db, payload)
+
+    # Check Suite re-run request
+    elif event_type == "check_suite":
+        action = payload.get("action")
+        if action == "rerequested":
+            await _handle_check_suite_rerequested(db, payload)
 
     db.commit()

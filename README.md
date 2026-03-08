@@ -58,7 +58,7 @@ Delta is a continuous documentation platform that treats documentation as a livi
    SECRET_KEY="YOUR_SECRET_KEY"
    ALGORITHM="ALGORITHM_USED"
    ACCESS_TOKEN_EXPIRE_MINUTES=60
-   REFRESH_TOKEN_EXPIRE_DAYS=7
+   REFRESH_TOKEN_EXPIRE_DAYS=15
 
    # GitHub App
    GITHUB_APP_ID="YOUR_GITHUB_APP_ID"
@@ -148,7 +148,7 @@ make format
 It allows the user to interact and set up Delta. It is a React + Vite application that allows the user to:
  - Sign Up and access Delta
  - Link new repositories
- - Manage settings for linked repositories (drift sensitivity, target branch, etc.)
+ - Manage settings for linked repositories (file_ignore_patterns, target branch, etc.)
 
 [See delta.frontend code.](https://github.com/Delta-Docs/delta.frontend)
 
@@ -161,7 +161,8 @@ The **heart** of the system. On linking a repository, The **Delta-Docs** GitHub 
 Delta completely relies on GitHub webhook events to operate. Currently, it is set up to track 3 kinds of webhook events:
 - `installation`: It is received when the user performs some action related to the installation of the GitHub App. It is triggered with the installation (which also includes the linking of at least 1 repository), uninstallation, suspension or unsuspension of the GitHub App.
 - `installation_repository`: It is received when a repository is added or removed from an existing installation.
-- `pull_request`: It is received when a pull request is raised in any of the linked repository.
+- `pull_request`: We handle two types of actions - `opened` for when a new pull request is raised in any of the linked repositories and `synchronize` for when new commits are pushed to an already existing PR.
+- `check_suite`: We handle only the `rerequested` action which we receive when the `Re-Run all checks` button is clicked in the PR.
 
 The `github_webhook_service.py` handles the payload from these types of webhook events and updates the DB and starts workflows accordingly.
 
@@ -171,6 +172,8 @@ Upon receiving a `pull_request` webhook event, a record in the `DriftEvent` tabl
 This is the reason we use Redis Queue. It is a simple queue implemented with Redis that has multiple consumers (the RQ Worker Pool). It is simple and complex enough for its purpose here at Delta.
 
 When a `DriftEvent` record is created, its ID is enqueued for processing. Any free RQ worker from the worker pool picks up the id and executes the task assigned with it.
+
+Whenever a drift event analysis job has to be re-run, its state in the DB is cleared and it is re-enqueued into RQ for a free worker to pick it up.
 
 ### Multi Agent Workflow
 This part of the architecture is still in the design phase and hasn't really been implemented yet, its a work in progress :)
@@ -196,7 +199,7 @@ delta.backend/
    │   │   ├── nodes/                       # Agent nodes
    │   │   ├── graph.py                     # LangGraph workflow graph
    │   │   ├── prompts.py                   # Agent prompts
-   │   │   └──  state.py                    # Workflow state definitions
+   │   │   └── state.py                     # Workflow state definitions
    │   │
    │   ├── core/                            # Core functionality
    │   │         

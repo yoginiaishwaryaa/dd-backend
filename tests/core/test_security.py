@@ -28,7 +28,7 @@ def test_create_access_token():
 # Test creating and verifying refresh tokens
 def test_create_refresh_token():
     subject = "test_user_id"
-    expires_delta = timedelta(days=7)
+    expires_delta = timedelta(days=15)
     token = security.create_refresh_token(subject, expires_delta)
     assert isinstance(token, str)
 

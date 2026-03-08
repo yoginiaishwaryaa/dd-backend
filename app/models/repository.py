@@ -3,7 +3,6 @@ from datetime import datetime
 from sqlalchemy import (
     String,
     Boolean,
-    Float,
     DateTime,
     ForeignKey,
     text,
@@ -31,7 +30,6 @@ class Repository(Base):
 
     docs_root_path: Mapped[str | None] = mapped_column(String, default="/docs")
     target_branch: Mapped[str | None] = mapped_column(String, default="main")
-    drift_sensitivity: Mapped[float | None] = mapped_column(Float, default=0.5)
     style_preference: Mapped[str | None] = mapped_column(String, default="professional")
     file_ignore_patterns: Mapped[list[str] | None] = mapped_column(ARRAY(String))
 

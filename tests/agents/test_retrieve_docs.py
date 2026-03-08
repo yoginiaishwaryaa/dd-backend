@@ -20,6 +20,9 @@ def _make_state(
         "change_elements": change_elements or [],
         "analysis_payloads": [],
         "findings": [],
+        "target_files": [],
+        "rewrite_results": [],
+        "style_preference": "professional",
     }
 
 
@@ -220,8 +223,8 @@ def test_modified_neither_old_nor_new_in_docs(tmp_path):
     assert result["analysis_payloads"] == []
 
 
-# Tests that a change element with empty elements and empty old_elements produces no output.
-def test_empty_elements_skipped(tmp_path):
+# Tests that a modified file with no extractable code elements falls back to the filename stem as a search term
+def test_empty_elements_falls_back_to_filename_stem(tmp_path):
     (tmp_path / "docs").mkdir()
 
     state = _make_state(
@@ -238,7 +241,10 @@ def test_empty_elements_skipped(tmp_path):
 
     result = retrieve_docs(state)
 
-    assert result["findings"] == []
+    # The file should not be silently skipped
+    assert len(result["findings"]) == 1
+    assert result["findings"][0]["code_path"] == "src/empty.py"
+    assert result["findings"][0]["drift_type"] == "outdated_docs"
     assert result["analysis_payloads"] == []
 
 

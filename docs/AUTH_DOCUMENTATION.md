@@ -5,7 +5,7 @@
 Delta uses a dual-token authentication system:
 
 1. **Access Token**: Short lived PASETO (1 hour) for API requests
-2. **Refresh Token**: Long lived PASETO (7 days) for refreshing access tokens
+2. **Refresh Token**: Long lived PASETO (15 days) for refreshing access tokens
 
 Both tokens are stored as httponly cookies to prevent XSS attacks.
 

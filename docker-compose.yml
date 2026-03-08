@@ -1,40 +1,42 @@
 services:
   postgres:
-    image: postgres:15
+    image: postgres:18-alpine
+    container_name: delta-postgres
+    restart: on-failure
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: 1234
       POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-  
+
   redis:
     image: redis:7-alpine
-
-  api:
-    build: .
-    command: uvicorn app.main:app --host 0.0.0.0 --port 80
+    container_name: delta-redis
+    restart: on-failure
     ports:
-      - "80:80"
-    depends_on:
-      - postgres
-      - redis
-    env_file:
-      - .env
+      - "6379:6379"
     volumes:
-      - repo_data:/app/repos
+      - redis_data:/data
+    command: redis-server --appendonly yes
 
-  worker:
-    build: .
-    command: python workers.py
+  drizzle-gateway:
+    image: ghcr.io/drizzle-team/gateway:latest
+    container_name: delta-drizzle-gateway
+    environment:
+      DATABASE_URL: postgresql://postgres:1234@postgres:5432/postgres
+      STORE_PATH: /app
+    restart: on-failure
     depends_on:
       - postgres
-      - redis
-    env_file:
-      - .env
+    ports:
+      - "4983:4983"
     volumes:
-      - repo_data:/app/repos
+      - drizzle_gateway_data:/app
 
 volumes:
   postgres_data:
-  repo_data:
+  redis_data:
+  drizzle_gateway_data:

@@ -22,6 +22,9 @@ def _make_state(
         "change_elements": change_elements or [],
         "analysis_payloads": analysis_payloads or [],
         "findings": findings or [],
+        "target_files": [],
+        "rewrite_results": [],
+        "style_preference": "professional",
     }
 
 

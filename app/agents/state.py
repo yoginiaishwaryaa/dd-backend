@@ -2,7 +2,7 @@ import operator
 from typing import Annotated, Any, TypedDict
 
 
-# Shared state passed between each node of the drift analysis workflow
+# Shared state passed between each node of the drift analysis + document generation workflow
 class DriftAnalysisState(TypedDict):
     drift_event_id: str
     base_sha: str
@@ -13,3 +13,8 @@ class DriftAnalysisState(TypedDict):
     change_elements: list[dict]
     analysis_payloads: list[dict]
     findings: Annotated[list[dict], operator.add]
+    # Document generation fields (populated after drift is detected)
+    target_files: list[dict]
+    rewrite_results: list[dict]
+    style_preference: str
+

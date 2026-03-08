@@ -64,7 +64,9 @@ def retrieve_docs(state: DriftAnalysisState) -> dict[str, Any]:
         search_terms: set[str] = set(elements + old_elements)
 
         if not search_terms:
-            continue
+            # Falling back to the filename stem so files with no extractable code elements are still matched
+            stem = os.path.splitext(os.path.basename(file_path))[0]
+            search_terms = {stem}
 
         matched_snippets: dict[str, list[str]] = {}
 
@@ -102,7 +104,7 @@ def retrieve_docs(state: DriftAnalysisState) -> dict[str, Any]:
                     "change_type": "modified",
                     "drift_type": "outdated_docs",
                     "drift_score": 0.8,
-                    "explanation": f"Modified code elements (including {elements}) were not found in any documentation. They may have been renamed or are undocumented.",
+                    "explanation": f"Modified code elements{f' (including {elements})' if elements else ''} were not found in any documentation. They may have been renamed or are undocumented.",
                     "confidence": 0.8,
                 }
             )

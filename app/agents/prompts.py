@@ -27,3 +27,89 @@ def build_deep_analyze_user_prompt(
         f"Analyze whether the documentation above accurately reflects the "
         f"NEW state of the code after this diff. Focus on any discrepancies."
     )
+
+
+# System prompt that instructs the LLM to plan documentation updates
+DOC_GEN_PLAN_SYSTEM_PROMPT = (
+    "You are a documentation update planner. Given a list of drift findings "
+    "(each describing a discrepancy between code and documentation), produce a "
+    "structured plan that maps each finding to the specific markdown file and "
+    "section that needs to be updated. For each entry output: doc_path (the "
+    "relative path to the .md file), section (heading or area to update), "
+    "action (one of 'update', 'add', 'remove'), and a brief description of "
+    "the required change."
+)
+
+
+# ── Style-specific rewrite system prompts ──────────────────────────────
+# Each prompt guides the LLM to modify existing content or add missing
+# documentation based on the detected drift, in the chosen writing style.
+
+_REWRITE_COMMON_RULES = (
+    "You will receive the current contents of a markdown documentation file "
+    "along with a description of code changes that caused documentation drift. "
+    "If the drift is about OUTDATED content, surgically edit the existing text "
+    "in-place — change values, names, descriptions, and parameters to match "
+    "the new code. DO NOT add new sections or duplicate content. "
+    "If the drift is about MISSING documentation, add a concise new section "
+    "in the most appropriate location within the existing document structure. "
+    "Return the complete updated file content as a single markdown string "
+    "with ONLY the necessary edits applied."
+)
+
+DOC_GEN_REWRITE_PROMPTS: dict[str, str] = {
+    "concise": (
+        "You are a technical writer who values brevity above all else. "
+        "Keep sentences short and direct. Use bullet points over paragraphs. "
+        "Remove filler words. Every sentence must convey essential information. "
+        + _REWRITE_COMMON_RULES
+    ),
+    "descriptive": (
+        "You are a thorough technical writer who provides rich detail. "
+        "Explain the WHY behind changes, include usage examples where helpful, "
+        "and provide context so readers fully understand the impact. "
+        "Use clear paragraphs with supporting details. "
+        + _REWRITE_COMMON_RULES
+    ),
+    "professional": (
+        "You are an expert technical writer with a formal, polished tone. "
+        "Use precise language, proper terminology, and a structured format. "
+        "Write in third person, avoid colloquialisms, and maintain a "
+        "consistent authoritative voice throughout. "
+        + _REWRITE_COMMON_RULES
+    ),
+    "technical": (
+        "You are a developer writing docs for other developers. "
+        "Focus on code-level details: function signatures, parameter types, "
+        "return values, endpoint paths, and configuration keys. "
+        "Use inline code formatting liberally. Skip high-level prose — "
+        "readers want exact specifications, not overviews. "
+        + _REWRITE_COMMON_RULES
+    ),
+}
+
+# Backwards-compatible alias (used if no style is specified)
+DOC_GEN_REWRITE_SYSTEM_PROMPT = DOC_GEN_REWRITE_PROMPTS["professional"]
+
+
+def get_rewrite_system_prompt(style_preference: str | None) -> str:
+    """Return the rewrite system prompt for the given style, defaulting to professional."""
+    key = (style_preference or "professional").lower().strip()
+    return DOC_GEN_REWRITE_PROMPTS.get(key, DOC_GEN_REWRITE_PROMPTS["professional"])
+
+
+def build_doc_gen_rewrite_prompt(
+    doc_path: str,
+    current_content: str,
+    change_descriptions: list[str],
+) -> str:
+    changes_block = "\n".join(f"- {desc}" for desc in change_descriptions)
+    return (
+        f"## Document to Update\n"
+        f"**File:** `{doc_path}`\n\n"
+        f"### Current Content\n```markdown\n{current_content}\n```\n\n"
+        f"### Required Changes\n{changes_block}\n\n"
+        f"Rewrite the document above to accurately reflect these code changes. "
+        f"Edit the existing text in-place — do NOT append new sections or duplicate content. "
+        f"Return the full updated markdown content."
+    )

@@ -27,7 +27,7 @@ def get_repos(
     return repos
 
 
-# Endpoint to Update repo settings like docs path, drift sensitivity, etc
+# Endpoint to Update repo settings like docs path, etc
 @router.put("/{repo_id}/settings", response_model=RepositoryResponse)
 def update_repo_settings(
     repo_id: UUID,
