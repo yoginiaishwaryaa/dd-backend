@@ -32,6 +32,7 @@ class Repository(Base):
     target_branch: Mapped[str | None] = mapped_column(String, default="main")
     style_preference: Mapped[str | None] = mapped_column(String, default="professional")
     file_ignore_patterns: Mapped[list[str] | None] = mapped_column(ARRAY(String))
+    reviewer: Mapped[str | None] = mapped_column(String)
 
     last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(

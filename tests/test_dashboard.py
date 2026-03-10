@@ -2,6 +2,8 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from app.routers.dashboard import get_dashboard_stats, get_dashboard_repos
 
+# =========== Fixtures ===========
+
 
 # Test fixtures for mocking user and database
 @pytest.fixture
@@ -16,6 +18,9 @@ def mock_db():
     return MagicMock()
 
 
+# =========== get_dashboard_stats Tests ===========
+
+
 # Test that dashboard stats returns correct counts
 def test_get_dashboard_stats(mock_db, mock_user):
     query_mock = mock_db.query.return_value
@@ -26,7 +31,8 @@ def test_get_dashboard_stats(mock_db, mock_user):
     mock_db.query.return_value.filter.return_value.scalar.side_effect = [5]
     mock_db.query.return_value.join.return_value.filter.return_value.scalar.side_effect = [12]
     mock_db.query.return_value.join.return_value.join.return_value.filter.return_value.scalar.side_effect = [
-        3
+        3,
+        0,
     ]
     q = mock_db.query.return_value
 

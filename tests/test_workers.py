@@ -4,6 +4,9 @@ import multiprocessing
 from rq import Worker
 
 
+# =========== Tests ===========
+
+
 # Test starting a single worker
 def test_start_worker_single():
     mock_worker = MagicMock(spec=Worker)

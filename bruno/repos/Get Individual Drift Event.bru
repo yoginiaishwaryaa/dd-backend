@@ -1,0 +1,21 @@
+meta {
+  name: Get Individual Drift Event
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseurl}}/repos/:repo_id/drift-events/:event_id
+  body: none
+  auth: inherit
+}
+
+params:path {
+  repo_id: 
+  event_id: 
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

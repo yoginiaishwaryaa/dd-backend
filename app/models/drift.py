@@ -1,6 +1,5 @@
 import uuid
 from datetime import datetime
-from typing import Any
 from sqlalchemy import (
     String,
     Integer,
@@ -13,7 +12,7 @@ from sqlalchemy import (
     Index,
     Boolean,
 )
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from app.db.base_class import Base
 
@@ -34,6 +33,7 @@ class DriftEvent(Base):
     base_sha: Mapped[str] = mapped_column(String, nullable=False)
     head_sha: Mapped[str] = mapped_column(String, nullable=False)
     check_run_id: Mapped[int | None] = mapped_column(BigInteger)
+    docs_pr_number: Mapped[int | None] = mapped_column(Integer)
     retry_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     processing_phase: Mapped[str] = mapped_column(String, default="queued")
@@ -41,7 +41,6 @@ class DriftEvent(Base):
 
     overall_drift_score: Mapped[float | None] = mapped_column(Float)
     summary: Mapped[str | None] = mapped_column(String)
-    agent_logs: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     error_message: Mapped[str | None] = mapped_column(String)
 
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -54,7 +53,7 @@ class DriftEvent(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "processing_phase IN ('queued', 'scouting', 'analyzing', 'generating', 'verifying', 'completed', 'failed')",
+            "processing_phase IN ('queued', 'scouting', 'analyzing', 'generating', 'verifying', 'completed', 'failed', 'fix_pr_raised', 'fix_pr_merged')",
             name="check_processing_phase",
         ),
         CheckConstraint(

@@ -44,8 +44,18 @@ def get_dashboard_stats(
         or 0
     )
 
-    # TODO: Implement logic to calculate the count of PRs raised for review
-    pr_waiting_count = 0
+    # Counts drift events where Delta has raised a docs-fix PR and is still waiting for merge
+    pr_waiting_count = int(
+        db.query(func.count(DriftEvent.id))
+        .join(Repository, DriftEvent.repo_id == Repository.id)
+        .join(Installation, Repository.installation_id == Installation.installation_id)
+        .filter(
+            Installation.user_id == current_user.id,
+            DriftEvent.processing_phase == "fix_pr_raised",
+        )
+        .scalar()
+        or 0
+    )
 
     return {
         "installations_count": installations_count,

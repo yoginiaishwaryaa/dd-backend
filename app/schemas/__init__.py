@@ -10,4 +10,6 @@ from .repository import (
     RepositoryActivation as RepositoryActivation,
     RepositoryResponse as RepositoryResponse,
 )
-from .drift import LLMDriftFinding as LLMDriftFinding
+from .llm import LLMDriftFinding as LLMDriftFinding
+from .llm import PlannedUpdate as PlannedUpdate
+from .llm import UpdatePlan as UpdatePlan

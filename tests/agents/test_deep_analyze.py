@@ -1,3 +1,4 @@
+import pytest
 from typing import Literal
 from unittest.mock import patch, MagicMock
 
@@ -6,6 +7,8 @@ from app.agents.nodes.deep_analyze import (
     LLMDriftFinding,
 )
 from app.agents.state import DriftAnalysisState
+
+# =========== Helper Functions ===========
 
 
 # Helper function to build a minimal state dictionary
@@ -49,18 +52,12 @@ def _mock_drift_finding(drift_detected: bool, **kwargs) -> LLMDriftFinding:
     return LLMDriftFinding(**defaults)
 
 
-# Tests that no analysis payloads results in an immediate return with empty findings.
-def test_empty_payloads_returns_empty():
-    state = _make_state(analysis_payloads=[])
-
-    result = deep_analyze(state)
-
-    assert result == {"findings": []}
+# =========== Tests ===========
 
 
 # Tests that when the LLM returns drift_detected=True, a finding dict is appended.
 @patch("app.agents.nodes.deep_analyze._get_git_diff")
-@patch("app.agents.nodes.deep_analyze.ChatGoogleGenerativeAI")
+@patch("app.agents.llm.ChatGoogleGenerativeAI")
 def test_drift_detected_produces_finding(mock_llm_class, mock_get_diff):
     mock_get_diff.return_value = "- @app.route('/date')\n+ @app.route('/today')"
 
@@ -96,7 +93,7 @@ def test_drift_detected_produces_finding(mock_llm_class, mock_get_diff):
 
 # Tests that when the LLM returns drift_detected=False, no findings are appended.
 @patch("app.agents.nodes.deep_analyze._get_git_diff")
-@patch("app.agents.nodes.deep_analyze.ChatGoogleGenerativeAI")
+@patch("app.agents.llm.ChatGoogleGenerativeAI")
 def test_no_drift_skipped(mock_llm_class, mock_get_diff):
     mock_get_diff.return_value = "- # old comment\n+ # new comment"
 
@@ -123,6 +120,15 @@ def test_no_drift_skipped(mock_llm_class, mock_get_diff):
     assert result["findings"] == []
 
 
+# Tests that no analysis payloads results in an immediate return with empty findings.
+def test_empty_payloads_returns_empty():
+    state = _make_state(analysis_payloads=[])
+
+    result = deep_analyze(state)
+
+    assert result == {"findings": []}
+
+
 # Tests that when the git diff returns None, the payload is skipped.
 @patch("app.agents.nodes.deep_analyze._get_git_diff")
 def test_git_diff_error_handled(mock_get_diff):
@@ -147,7 +153,7 @@ def test_git_diff_error_handled(mock_get_diff):
 
 # Tests that with two payloads where one has drift and one doesn't, only one finding is produced.
 @patch("app.agents.nodes.deep_analyze._get_git_diff")
-@patch("app.agents.nodes.deep_analyze.ChatGoogleGenerativeAI")
+@patch("app.agents.llm.ChatGoogleGenerativeAI")
 def test_multiple_payloads(mock_llm_class, mock_get_diff):
     mock_get_diff.return_value = "some diff content"
 
@@ -185,9 +191,9 @@ def test_multiple_payloads(mock_llm_class, mock_get_diff):
     assert result["findings"][0]["code_path"] == "src/api.py"
 
 
-# Tests that when the LLM raises an exception, the payload is skipped without crashing.
+# Tests that when the LLM raises an exception, the exception propagates out of deep_analyze.
 @patch("app.agents.nodes.deep_analyze._get_git_diff")
-@patch("app.agents.nodes.deep_analyze.ChatGoogleGenerativeAI")
+@patch("app.agents.llm.ChatGoogleGenerativeAI")
 def test_llm_exception_handled(mock_llm_class, mock_get_diff):
     mock_get_diff.return_value = "some diff"
 
@@ -209,6 +215,5 @@ def test_llm_exception_handled(mock_llm_class, mock_get_diff):
         ],
     )
 
-    result = deep_analyze(state)
-
-    assert result["findings"] == []
+    with pytest.raises(Exception, match="API rate limit exceeded"):
+        deep_analyze(state)

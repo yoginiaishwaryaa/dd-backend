@@ -8,6 +8,9 @@ from app.agents.nodes.scout_changes import (
 from app.agents.state import DriftAnalysisState
 
 
+# =========== Helper Functions ===========
+
+
 # Helper function to build a mock CodeChange row
 def _make_code_change(
     file_path: str, change_type: str = "modified", is_code: bool = True, is_ignored: bool = False
@@ -45,6 +48,9 @@ def _make_state(
         "rewrite_results": [],
         "style_preference": "professional",
     }
+
+
+# =========== Tests ===========
 
 
 # Tests that classes and functions are extracted from source code.

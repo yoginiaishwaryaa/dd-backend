@@ -36,19 +36,22 @@ def _extract_and_save_code_changes(session, drift_event):
         raise Exception(f"Local repository not found at {repo_path}")
 
     try:
-        # Get a fresh access token and fetch all remote refs
-        try:
-            installation_id = drift_event.repository.installation_id
-            access_token = asyncio.run(get_installation_access_token(installation_id))
-            head_branch = drift_event.head_branch
-            base_branch = drift_event.base_branch
-            asyncio.run(pull_branches(repo_full_name, access_token, [base_branch, head_branch]))
-        except Exception as auth_err:
-            print(f"Warning: authenticated fetch failed, trying plain fetch: {auth_err}")
-            subprocess.run(
-                ["git", "-C", str(repo_path), "fetch", "origin"],
-                capture_output=True, text=True, timeout=120,
-            )
+        # Get a fresh access token and fetch all remote refs (only for PRs targeting the configured branch)
+        if drift_event.base_branch == drift_event.repository.target_branch:
+            try:
+                installation_id = drift_event.repository.installation_id
+                access_token = asyncio.run(get_installation_access_token(installation_id))
+                head_branch = drift_event.head_branch
+                base_branch = drift_event.base_branch
+                asyncio.run(pull_branches(repo_full_name, access_token, [base_branch, head_branch]))
+            except Exception as auth_err:
+                print(f"Warning: authenticated fetch failed, trying plain fetch: {auth_err}")
+                subprocess.run(
+                    ["git", "-C", str(repo_path), "fetch", "origin"],
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
+                )
 
         # Get a list of changed files using git diff
         result = subprocess.run(
@@ -200,7 +203,6 @@ def run_drift_analysis(drift_event_id: str):
                     drift_event.drift_result = "pending"
                     drift_event.overall_drift_score = None
                     drift_event.summary = None
-                    drift_event.agent_logs = None
                     drift_event.error_message = str(e)
                     drift_event.started_at = None
                     drift_event.completed_at = None
@@ -233,7 +235,7 @@ def run_drift_analysis(drift_event_id: str):
                                     status="completed",
                                     conclusion="failure",
                                     title="Delta Drift Analysis",
-                                    summary="Drift analysis failed due to an internal error.",
+                                    summary="Drift analysis could not be completed due to an internal error. Please try again after some time by clicking **Re-run all checks**.",
                                 )
                             )
                         except Exception as check_run_e:

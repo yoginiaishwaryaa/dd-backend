@@ -13,8 +13,6 @@ def aggregate_results(state: DriftAnalysisState) -> dict[str, Any]:
     session = state["session"]
     drift_event_id = state["drift_event_id"]
     findings: list[dict] = state["findings"]
-    change_elements: list[dict] = state["change_elements"]
-    analysis_payloads: list[dict] = state["analysis_payloads"]
 
     # Determine overall drift score and conclusion from all findings
     if not findings:
@@ -37,36 +35,6 @@ def aggregate_results(state: DriftAnalysisState) -> dict[str, Any]:
         for i, f in enumerate(findings, 1):
             summary += f"{i}. {f.get('code_path', '?')} - {f.get('drift_type', '?')} (score: {f.get('drift_score', 0):.1f})\n"
             summary += f"   {f.get('explanation', '')}\n\n"
-
-    # Compile agent logs for debugging and audit trails
-    file_names = [ce.get("file_path", "?") for ce in change_elements]
-    total_elements = sum(len(ce.get("elements", [])) for ce in change_elements)
-    total_old = sum(len(ce.get("old_elements", [])) for ce in change_elements)
-    fast_tracked = [f for f in findings if f.get("confidence") == 1.0]
-    llm_findings = [f for f in findings if f.get("confidence") != 1.0]
-
-    agent_logs = {
-        "Scouting": (
-            f"Analyzed {len(change_elements)} Python file(s): {', '.join(file_names)}. "
-            f"Extracted {total_elements} current element(s) and {total_old} previous element(s) for rename detection."
-        ),
-        "Retrieval": (
-            f"Searched documentation for all extracted identifiers. "
-            f"Prepared {len(analysis_payloads)} payload(s) for LLM analysis. "
-            f"Fast-tracked {len(fast_tracked)} obvious finding(s) without LLM."
-        ),
-        "Analysis": (
-            f"Sent {len(analysis_payloads)} code diff(s) to LLM for semantic verification. "
-            f"LLM identified {len(llm_findings)} documentation drift(s)."
-        )
-        if analysis_payloads
-        else "No payloads required LLM analysis. All resolved during retrieval.",
-        "Result": (
-            f"Overall drift score: {overall_score:.2f}. "
-            f"Conclusion: {drift_result}. "
-            f"Total findings: {len(findings)}."
-        ),
-    }
 
     # Add each finding as a DriftFinding record in DB
     for f in findings:
@@ -92,7 +60,6 @@ def aggregate_results(state: DriftAnalysisState) -> dict[str, Any]:
         drift_event.overall_drift_score = overall_score
         drift_event.drift_result = drift_result
         drift_event.summary = summary
-        drift_event.agent_logs = agent_logs
         drift_event.processing_phase = "completed"
         drift_event.completed_at = datetime.now(timezone.utc)
 

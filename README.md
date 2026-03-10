@@ -132,6 +132,9 @@ make lint
 
 # Run ruff's formatter
 make format
+
+# Run all python tests
+make test
 ```
 
 > **NOTE**: The `make` commands are designed to work only on Linux.  

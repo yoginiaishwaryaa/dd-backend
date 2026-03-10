@@ -3,6 +3,8 @@ import textwrap
 from app.agents.nodes.retrieve_docs import retrieve_docs
 from app.agents.state import DriftAnalysisState
 
+# =========== Helper Functions ===========
+
 
 # Helper function to build a minimal state dictionary
 def _make_state(
@@ -24,6 +26,9 @@ def _make_state(
         "rewrite_results": [],
         "style_preference": "professional",
     }
+
+
+# =========== Tests ===========
 
 
 # Tests that an added file with no doc mentions produces a missing_docs finding.

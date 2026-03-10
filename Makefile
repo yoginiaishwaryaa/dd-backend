@@ -15,6 +15,7 @@ help:
 	@echo "  clean         Remove cache files"
 	@echo "  lint          Run ruff check and pyrefly check"
 	@echo "  format        Run ruff format"
+	@echo "  test          Run all Python tests"
 
 VENV := .venv
 BIN := $(VENV)/bin
@@ -72,5 +73,9 @@ lint:
 	-$(BIN)/ruff check
 	-$(BIN)/pyrefly check
 
+
 format:
 	-$(BIN)/ruff format .
+
+test:
+	$(BIN)/python -m pytest

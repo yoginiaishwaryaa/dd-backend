@@ -1,9 +1,8 @@
 import subprocess
 from typing import Any, cast
-from langchain_google_genai import ChatGoogleGenerativeAI
 
-from app.core.config import settings
 from app.schemas import LLMDriftFinding
+from app.agents.llm import get_llm
 from app.agents.state import DriftAnalysisState
 from app.agents.prompts import DEEP_ANALYZE_SYSTEM_PROMPT, build_deep_analyze_user_prompt
 
@@ -37,12 +36,7 @@ def deep_analyze(state: DriftAnalysisState) -> dict[str, Any]:
         return {"findings": []}
 
     # Initialise Gemini with structured output bound to LLMDriftFinding
-    llm = ChatGoogleGenerativeAI(
-        model=settings.LLM_MODEL,
-        google_api_key=settings.GEMINI_API_KEY,
-        temperature=0,
-    )
-    structured_llm = llm.with_structured_output(LLMDriftFinding)
+    structured_llm = get_llm().with_structured_output(LLMDriftFinding)
 
     new_findings: list[dict] = []
 
@@ -83,8 +77,8 @@ def deep_analyze(state: DriftAnalysisState) -> dict[str, Any]:
             )
             result = cast(LLMDriftFinding, raw_result)
         except Exception as exc:
-            print(f"LLM error: {exc}")
-            continue
+            print(f"LLM error on payload {i}/{len(analysis_payloads)}: {exc}")
+            raise
 
         # Record findings where the LLM confirms actual drift
         if result.drift_detected:

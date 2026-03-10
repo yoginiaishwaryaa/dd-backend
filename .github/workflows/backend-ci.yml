@@ -74,7 +74,13 @@ jobs:
         pip install -r requirements.txt
 
     - name: Set up environment
-      run: cp .env.example .env
+      run: |
+        cp .env.example .env
+        sed -i 's/YOUR_GEMINI_API_KEY/${{ secrets.GEMINI_API_KEY }}/g' .env
+        sed -i 's/YOUR_GITHUB_APP_ID/${{ secrets.GITHUB_APP_ID }}/g' .env
+        sed -i 's/YOUR_GITHUB_CLIENT_ID/${{ secrets.GITHUB_CLIENT_ID }}/g' .env
+        sed -i 's/YOUR_GITHUB_CLIENT_SECRET/${{ secrets.GITHUB_CLIENT_SECRET }}/g' .env
+        sed -i 's/YOUR_GITHUB_WEBHOOK_SECRET/${{ secrets.GITHUB_WEBHOOK_SECRET }}/g' .env
 
     - name: Run tests
       run: |

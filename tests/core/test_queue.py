@@ -3,6 +3,8 @@ from unittest.mock import MagicMock, patch
 from rq import Queue
 import redis
 
+# =========== Tests ===========
+
 
 # Test that Redis connection is properly initialized
 def test_redis_connection_initialization():

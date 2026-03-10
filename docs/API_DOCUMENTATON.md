@@ -138,7 +138,8 @@ Update repository configuration.
   "docs_root_path": "/docs",
   "target_branch": "main",
   "style_preference": "technical",
-  "file_ignore_patterns": ["*.test.js", "*.spec.ts"]
+  "file_ignore_patterns": ["*.test.js", "*.spec.ts"],
+  "reviewer": "github-username"
 }
 ```
 
@@ -154,12 +155,13 @@ Update repository configuration.
   "target_branch": "main",
   "style_preference": "technical",
   "file_ignore_patterns": ["*.test.js", "*.spec.ts"],
+  "reviewer": "github-username",
   "last_synced_at": null,
 }
 ```
 
 ### GET `/repos/{repo_id}/drift-events`
-Get all drift events for a repository, ordered by most recent first.
+Get basic details for all drift events in a repository, ordered by most recent first.
 
 **Response:**
 ```json
@@ -172,13 +174,53 @@ Get all drift events for a repository, ordered by most recent first.
     "processing_phase": "completed",
     "drift_result": "drift_detected",
     "overall_drift_score": 0.8,
-    "summary": "Authentication flow was updated but related docs were not.",
-    "error_message": null,
-    "started_at": "2026-02-28T19:59:19.752504Z",
-    "completed_at": "2026-02-28T19:59:22.853917Z",
-    "created_at": "2026-02-28T19:59:10.705067Z"
+    "created_at": "2026-02-28T19:59:10.705067Z",
+    "docs_pr_number": 15
   }
 ]
+```
+
+### GET `/repos/{repo_id}/drift-events/{event_id}`
+Get all information for a specific drift event, including all drift findings and code changes.
+
+**Response:**
+```json
+{
+  "id": "a3f9c120-12d4-4b3e-9c7a-1a2b3c4d5e6f",
+  "pr_number": 42,
+  "base_branch": "main",
+  "head_branch": "feat/update-auth",
+  "processing_phase": "completed",
+  "drift_result": "drift_detected",
+  "overall_drift_score": 0.8,
+  "error_message": null,
+  "started_at": "2026-02-28T19:59:19.752504Z",
+  "completed_at": "2026-02-28T19:59:22.853917Z",
+  "created_at": "2026-02-28T19:59:10.705067Z",
+  "docs_pr_number": 15,
+  "findings": [
+    {
+      "id": "b1c2d3e4-5f6a-7b8c-9d0e-1f2a3b4c5d6e",
+      "code_path": "src/auth/login.py",
+      "doc_file_path": "docs/auth/login.md",
+      "change_type": "modified",
+      "drift_type": "outdated_docs",
+      "drift_score": 0.85,
+      "explanation": "The login function now includes MFA support, but documentation doesn't mention this feature.",
+      "confidence": 0.92,
+      "created_at": "2026-02-28T19:59:20.123456Z"
+    }
+  ],
+  "code_changes": [
+    {
+      "id": "c2d3e4f5-6a7b-8c9d-0e1f-2a3b4c5d6e7f",
+      "file_path": "src/auth/login.py",
+      "change_type": "modified",
+      "is_code": true,
+      "is_ignored": false
+    }
+  ]
+}
 ```
 
 ## Dashboard Endpoints (`/api/dashboard`)

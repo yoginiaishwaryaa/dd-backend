@@ -5,7 +5,7 @@ from fastapi import APIRouter, Request, HTTPException, Depends
 from sqlalchemy.orm import Session
 
 from app.deps import get_db_connection
-from app.services.github_webhook_service import handle_github_event
+from app.services.github_webhook import handle_github_event
 
 router = APIRouter()
 
