@@ -1,0 +1,25 @@
+name: Deploy to VPS
+on:
+  push:
+    branches: [ "main" ]
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Deploy via SSH
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.VPS_IP }}
+        username: ${{ secrets.VPS_USERNAME }}
+        key: ${{ secrets.VPS_SSH_KEY }}
+        script: |
+          # 1. Enter the project folder
+          cd dd-backend
+
+          # 2. Pull the latest code (this updates the Python code without touching your .env)
+          git pull origin main
+
+          # 3. Build and run the updated containers
+          sudo docker compose up --build -d

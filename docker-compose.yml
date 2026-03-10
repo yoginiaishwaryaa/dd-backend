@@ -1,8 +1,8 @@
 services:
   postgres:
-    image: postgres:18-alpine
-    container_name: delta-postgres
-    restart: on-failure
+    image: postgres:15
+    container_name: dd-backend-postgres-1
+    restart: always
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: 1234
@@ -14,13 +14,10 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: delta-redis
-    restart: on-failure
+    container_name: dd-backend-redis-1
+    restart: always
     ports:
       - "6379:6379"
-    volumes:
-      - redis_data:/data
-    command: redis-server --appendonly yes
 
   drizzle-gateway:
     image: ghcr.io/drizzle-team/gateway:latest
@@ -28,13 +25,36 @@ services:
     environment:
       DATABASE_URL: postgresql://postgres:1234@postgres:5432/postgres
       STORE_PATH: /app
-    restart: on-failure
+    restart: always
     depends_on:
       - postgres
     ports:
       - "4983:4983"
     volumes:
       - drizzle_gateway_data:/app
+
+  api:
+    build: .
+    container_name: dd-backend-api-1
+    restart: always
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - redis
+    env_file:
+      - .env
+
+  worker:
+    build: .
+    container_name: dd-backend-worker-1
+    restart: always
+    command: python workers.py
+    depends_on:
+      - redis
+      - postgres
+    env_file:
+      - .env
 
 volumes:
   postgres_data:
