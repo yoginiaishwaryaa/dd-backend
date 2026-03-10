@@ -68,11 +68,11 @@ DOC_GEN_REWRITE_SYSTEM_PROMPT = DOC_GEN_REWRITE_PROMPTS["professional"]
 # System prompt for summarising per-file documentation updates
 DOC_UPDATES_SUMMARY_SYSTEM_PROMPT = (
     "You are a technical writer producing a concise changelog. "
-    "For each documentation file you are given, write exactly one-two lines that "
-    "summarises what was changed. The line must follow this exact format: "
-    "`<filename>` - <summary of what changed>. "
-    "Do NOT include bullet symbols, numbering, or any extra text. "
-    "Output one-two line per file, nothing else."
+    "For each documentation file you are given, write exactly one bullet point that "
+    "summarises what was changed. Each line must follow this exact format: "
+    "- `<filename>` - <summary of what changed>. "
+    "Do NOT include numbering or any extra text. "
+    "Output one bullet point per file, nothing else."
 )
 
 

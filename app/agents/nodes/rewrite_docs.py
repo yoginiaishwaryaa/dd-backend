@@ -10,6 +10,15 @@ from app.agents.prompts import (
     build_doc_updates_summary_prompt,
 )
 
+# Extracts the text from the LLM response, handling both plain string and list of blocks formats
+def _extract_text(content: Any) -> str:
+    if isinstance(content, list):
+        return "".join(
+            block.get("text", "") if isinstance(block, dict) else str(block)
+            for block in content
+        )
+    return str(content)
+
 
 # Node rewrites each target doc file using the LLM
 def rewrite_docs(state: DriftAnalysisState) -> dict[str, Any]:
@@ -74,7 +83,7 @@ def rewrite_docs(state: DriftAnalysisState) -> dict[str, Any]:
                     {"role": "user", "content": user_prompt},
                 ]
             )
-            new_content: str = str(result.content) if hasattr(result, "content") else str(result)
+            new_content: str = _extract_text(result.content) if hasattr(result, "content") else str(result)
 
             # Strip markdown code fences if the LLM wrapped the output
             if new_content.startswith("```markdown"):
@@ -114,14 +123,14 @@ def rewrite_docs(state: DriftAnalysisState) -> dict[str, Any]:
                 ]
             )
             doc_updates_summary = (
-                str(summary_result.content)
+                _extract_text(summary_result.content)
                 if hasattr(summary_result, "content")
                 else str(summary_result)
             ).strip()
         except Exception as exc:
             print(f"rewrite_docs: summary LLM error: {exc}")
             doc_updates_summary = "\n".join(
-                f"`{r['doc_path']}` - documentation updated" for r in rewrite_results
+                f"- `{r['doc_path']}` - documentation updated" for r in rewrite_results
             )
 
     return {"rewrite_results": rewrite_results, "doc_updates_summary": doc_updates_summary}

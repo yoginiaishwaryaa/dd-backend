@@ -2,6 +2,8 @@ name: Deploy to VPS
 on:
   push:
     branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -16,10 +18,13 @@ jobs:
         key: ${{ secrets.VPS_SSH_KEY }}
         script: |
           # 1. Enter the project folder
-          cd dd-backend
+          cd delta.backend
 
           # 2. Pull the latest code (this updates the Python code without touching your .env)
           git pull origin main
 
           # 3. Build and run the updated containers
-          sudo docker compose up --build -d
+          sudo docker-compose up --build -d
+
+          # 4. Run database migrations
+          sudo docker exec delta-api alembic upgrade head

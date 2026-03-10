@@ -163,19 +163,12 @@ async def github_callback(
     current_user: User = Depends(get_current_user),
 ):
     code = request.query_params.get("code")
-    # GitHub passes installation_id directly on setup, but we pass it via state during OAuth
-    installation_id = request.query_params.get("state") or request.query_params.get("installation_id")
+    installation_id = request.query_params.get("installation_id")
 
     GITHUB_CLIENT_ID = settings.GITHUB_CLIENT_ID
     GITHUB_CLIENT_SECRET = settings.GITHUB_CLIENT_SECRET
 
     if not code:
-        if installation_id:
-            # Redirect to OAuth to grab the code, passing installation_id in state
-            return RedirectResponse(
-                url=f"https://github.com/login/oauth/authorize?client_id={GITHUB_CLIENT_ID}&state={installation_id}",
-                status_code=303
-            )
         raise HTTPException(status_code=400, detail="Authorization code missing")
 
     async with httpx.AsyncClient() as client:
