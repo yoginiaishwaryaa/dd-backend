@@ -9,59 +9,49 @@ on:
 jobs:
   ruff-lint:
     runs-on: ubuntu-latest
+
     steps:
     - uses: actions/checkout@v4
+
     - name: Set up Python 3.12
       uses: actions/setup-python@v5
       with:
         python-version: "3.12"
+
     - name: Install ruff
       run: pip install ruff
+
     - name: Run ruff check
-      run: ruff check .
+      run: ruff check
 
   pyrefly-typecheck:
     runs-on: ubuntu-latest
+
     steps:
     - uses: actions/checkout@v4
+
     - name: Set up Python 3.12
       uses: actions/setup-python@v5
       with:
         python-version: "3.12"
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
+
     - name: Install pyrefly
       run: pip install pyrefly
+
     - name: Run pyrefly
-      run: pyrefly check .
+      run: pyrefly check
 
   backend-tests:
     runs-on: ubuntu-latest
-    
-    # WE MUST ADD THESE SERVICES SO PYTEST HAS A DATABASE TO HIT!
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: 1234
-          POSTGRES_DB: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
 
     steps:
     - uses: actions/checkout@v4
+
     - name: Set up Python 3.12
       uses: actions/setup-python@v5
       with:
@@ -74,13 +64,7 @@ jobs:
         pip install -r requirements.txt
 
     - name: Set up environment
-      run: |
-        cp .env.example .env
-        sed -i 's/YOUR_GEMINI_API_KEY/${{ secrets.GEMINI_API_KEY }}/g' .env
-        sed -i 's/YOUR_GITHUB_APP_ID/${{ secrets.GITHUB_APP_ID }}/g' .env
-        sed -i 's/YOUR_GITHUB_CLIENT_ID/${{ secrets.GITHUB_CLIENT_ID }}/g' .env
-        sed -i 's/YOUR_GITHUB_CLIENT_SECRET/${{ secrets.GITHUB_CLIENT_SECRET }}/g' .env
-        sed -i 's/YOUR_GITHUB_WEBHOOK_SECRET/${{ secrets.GITHUB_WEBHOOK_SECRET }}/g' .env
+      run: cp .env.example .env
 
     - name: Run tests
       run: |
