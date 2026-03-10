@@ -70,7 +70,8 @@ def plan_updates(state: DriftAnalysisState) -> dict[str, Any]:
     structured_llm = get_llm().with_structured_output(UpdatePlan)
 
     # Build user prompt with all findings AND the list of real doc files
-    user_prompt = build_doc_gen_plan_user_prompt(existing_md_files, drift_findings)
+    docs_policies: str | None = state.get("docs_policies")
+    user_prompt = build_doc_gen_plan_user_prompt(existing_md_files, drift_findings, docs_policies)
 
     try:
         raw_result = structured_llm.invoke(

@@ -18,3 +18,4 @@ class DriftAnalysisState(TypedDict):
     rewrite_results: list[dict]
     doc_updates_summary: NotRequired[str]
     style_preference: str
+    docs_policies: NotRequired[str]

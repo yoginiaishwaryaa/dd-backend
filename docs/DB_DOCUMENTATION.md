@@ -48,6 +48,8 @@ CREATE TABLE repositories (
     target_branch VARCHAR DEFAULT 'main',
     style_preference VARCHAR DEFAULT 'professional',
     file_ignore_patterns VARCHAR[],
+    reviewer VARCHAR,
+    docs_policies TEXT,
     last_synced_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT now(),
     UNIQUE(installation_id, repo_name)

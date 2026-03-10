@@ -35,6 +35,7 @@ def _setup_run_mocks(drift_event_id=None, docs_root_path="/docs"):
     drift_event.repository.repo_name = "owner/repo"
     drift_event.repository.installation_id = 99
     drift_event.repository.docs_root_path = docs_root_path
+    drift_event.repository.docs_policies = None
     drift_event.check_run_id = 12345
     drift_event.processing_phase = "queued"
     drift_event.drift_result = "pending"
@@ -58,6 +59,7 @@ def _setup_failure_mocks(check_run_id=12345):
     drift_event.repository.repo_name = "owner/repo"
     drift_event.repository.installation_id = 99
     drift_event.repository.docs_root_path = "/docs"
+    drift_event.repository.docs_policies = None
     drift_event.repository.installation.user_id = uuid4()
 
     session = MagicMock()
@@ -78,6 +80,7 @@ def _setup_retry_mocks(retry_count=0):
     drift_event.repository.repo_name = "owner/repo"
     drift_event.repository.installation_id = 99
     drift_event.repository.docs_root_path = "/docs"
+    drift_event.repository.docs_policies = None
     drift_event.repository.installation.user_id = uuid4()
 
     session = MagicMock()

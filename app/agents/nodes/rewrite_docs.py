@@ -16,6 +16,7 @@ def rewrite_docs(state: DriftAnalysisState) -> dict[str, Any]:
     target_files: list[dict] = state["target_files"]
     repo_path: str = state["repo_path"]
     style_preference: str = state.get("style_preference", "professional")
+    docs_policies: str | None = state.get("docs_policies")
 
     if not target_files:
         return {"rewrite_results": []}
@@ -66,7 +67,10 @@ def rewrite_docs(state: DriftAnalysisState) -> dict[str, Any]:
         try:
             result = llm.invoke(
                 [
-                    {"role": "system", "content": get_rewrite_system_prompt(style_preference)},
+                    {
+                        "role": "system",
+                        "content": get_rewrite_system_prompt(style_preference, docs_policies),
+                    },
                     {"role": "user", "content": user_prompt},
                 ]
             )

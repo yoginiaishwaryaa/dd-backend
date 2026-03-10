@@ -98,6 +98,8 @@ List all repositories for the authenticated user.
     "target_branch": "main",
     "style_preference": "professional",
     "file_ignore_patterns": null,
+    "reviewer": null,
+    "docs_policies": null,
     "last_synced_at": null,
   }
 ]
@@ -125,6 +127,8 @@ Activate or deactivate drift monitoring for a repository.
   "target_branch": "main",
   "style_preference": "professional",
   "file_ignore_patterns": null,
+  "reviewer": null,
+  "docs_policies": null,
   "last_synced_at": null,
 }
 ```
@@ -139,7 +143,8 @@ Update repository configuration.
   "target_branch": "main",
   "style_preference": "technical",
   "file_ignore_patterns": ["*.test.js", "*.spec.ts"],
-  "reviewer": "github-username"
+  "reviewer": "github-username",
+  "docs_policies": "- Use present tense.\n- Keep paragraphs concise.\n- Include usage examples for all public APIs."
 }
 ```
 
@@ -156,6 +161,7 @@ Update repository configuration.
   "style_preference": "technical",
   "file_ignore_patterns": ["*.test.js", "*.spec.ts"],
   "reviewer": "github-username",
+  "docs_policies": "- Use present tense.\n- Keep paragraphs concise.\n- Include usage examples for all public APIs.",
   "last_synced_at": null,
 }
 ```

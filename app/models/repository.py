@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 from sqlalchemy import (
     String,
+    Text,
     Boolean,
     DateTime,
     ForeignKey,
@@ -33,6 +34,7 @@ class Repository(Base):
     style_preference: Mapped[str | None] = mapped_column(String, default="professional")
     file_ignore_patterns: Mapped[list[str] | None] = mapped_column(ARRAY(String))
     reviewer: Mapped[str | None] = mapped_column(String)
+    docs_policies: Mapped[str | None] = mapped_column(Text)
 
     last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(

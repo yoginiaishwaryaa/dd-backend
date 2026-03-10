@@ -96,12 +96,24 @@ def build_deep_analyze_user_prompt(
     )
 
 
-# Returns the rewrite system prompt for the given style
-def get_rewrite_system_prompt(style_preference: str | None) -> str:
+# Returns the rewrite system prompt for the given style and appends user doc policies if set
+def get_rewrite_system_prompt(
+    style_preference: str | None,
+    docs_policies: str | None = None,
+) -> str:
     key = (style_preference or "professional").lower().strip()
-    return DOC_GEN_REWRITE_PROMPTS.get(key, DOC_GEN_REWRITE_PROMPTS["professional"])
+    base_prompt = DOC_GEN_REWRITE_PROMPTS.get(key, DOC_GEN_REWRITE_PROMPTS["professional"])
+    if not docs_policies:
+        return base_prompt
+    return (
+        base_prompt
+        + "\n\n## Repository Documentation Policies\n"
+        + "The following policies are set by the repository owner and MUST be followed:\n"
+        + docs_policies
+    )
 
 
+# Builds the user prompt for the rewrite_docs node, including the current doc content and change desc
 def build_doc_gen_rewrite_prompt(
     doc_path: str,
     current_content: str,
@@ -119,6 +131,7 @@ def build_doc_gen_rewrite_prompt(
     )
 
 
+# Builds the user prompt for the doc updates summary node, including list of changed files and change desc
 def build_doc_updates_summary_prompt(file_changes: list[dict]) -> str:
     lines = []
     for fc in file_changes:
@@ -134,9 +147,11 @@ def build_doc_updates_summary_prompt(file_changes: list[dict]) -> str:
     )
 
 
+# Builds the user prompt for the plan_updates node, including list of real doc files, drift findings and docs policies if set. Instructs the LLM to ONLY use the provided doc files and not hallucinate new paths.
 def build_doc_gen_plan_user_prompt(
     existing_md_files: list[str],
     drift_findings: list[dict],
+    docs_policies: str | None = None,
 ) -> str:
     findings_text = ""
     for i, finding in enumerate(drift_findings, 1):
@@ -148,10 +163,17 @@ def build_doc_gen_plan_user_prompt(
         )
 
     md_files_list = "\n".join(f"- `{f}`" for f in existing_md_files)
+    policies_block = f"## Documentation Policies\n{docs_policies}\n\n" if docs_policies else ""
     return (
         f"## Available Documentation Files\n{md_files_list}\n\n"
+        f"{policies_block}"
         f"## Drift Findings\n{findings_text}\n"
         f"Plan the documentation updates needed to resolve each finding above. "
         f"You MUST ONLY use doc_path values from the 'Available Documentation Files' list above. "
         f"Do NOT invent or guess file paths."
+        + (
+            " Ensure all planned changes comply with the Documentation Policies above."
+            if docs_policies
+            else ""
+        )
     )

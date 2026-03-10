@@ -16,6 +16,7 @@ class RepositorySettings(BaseModel):
     style_preference: Optional[str] = None
     file_ignore_patterns: Optional[list[str]] = None
     reviewer: Optional[str] = None
+    docs_policies: Optional[str] = None
 
 
 # Schema for toggling repo active status
@@ -35,6 +36,7 @@ class RepositoryResponse(BaseModel):
     style_preference: Optional[str]
     file_ignore_patterns: Optional[list[str]]
     reviewer: Optional[str]
+    docs_policies: Optional[str]
     last_synced_at: Optional[datetime]
 
     model_config = ConfigDict(from_attributes=True)

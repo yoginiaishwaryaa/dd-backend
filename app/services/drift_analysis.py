@@ -14,6 +14,7 @@ from app.services.github_api import update_github_check_run, get_installation_ac
 from app.services.notification_service import create_notification
 from app.agents.state import DriftAnalysisState
 from app.agents.graph import drift_analysis_graph
+from app.agents.policy_guard import validate_and_sanitize_policies
 
 
 # Creates a separate SQLAlchemy session for use in background tasks
@@ -163,6 +164,9 @@ def run_drift_analysis(drift_event_id: str):
 
         repo_path = get_local_repo_path(drift_event.repository.repo_name)
 
+        # Run docs_policies through a guardrail before passing to the graph
+        docs_policies = validate_and_sanitize_policies(drift_event.repository.docs_policies)
+
         initial_state: DriftAnalysisState = {
             "drift_event_id": str(drift_event.id),
             "base_sha": drift_event.base_sha,
@@ -176,6 +180,7 @@ def run_drift_analysis(drift_event_id: str):
             "target_files": [],
             "rewrite_results": [],
             "style_preference": drift_event.repository.style_preference or "professional",
+            **({"docs_policies": docs_policies} if docs_policies else {}),
         }
 
         drift_analysis_graph.invoke(initial_state)
